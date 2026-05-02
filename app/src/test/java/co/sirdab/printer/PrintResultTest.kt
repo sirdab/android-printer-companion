@@ -16,7 +16,7 @@ class PrintResultTest {
 
     @Test
     fun success_isInstance() {
-        val result = PrintResult.Success(3)
+        val result: PrintResult = PrintResult.Success(3)
         assertTrue(result is PrintResult.Success)
         assertFalse(result is PrintResult.Failure)
     }
@@ -85,7 +85,7 @@ class PrintResultTest {
 
     @Test
     fun failure_isInstance() {
-        val result = PrintResult.Failure("error", "message")
+        val result: PrintResult = PrintResult.Failure("error", "message")
         assertTrue(result is PrintResult.Failure)
         assertFalse(result is PrintResult.Success)
     }
