@@ -67,21 +67,26 @@ Place `sirdab-printer.jks` in the `app/` directory. Back up both files securely 
 
 ## First-time tablet setup
 
+Each tablet connects to a different printer, so the printer IP is configured
+directly on the device. This only needs to be done once per tablet.
+
 1. Install the APK remotely via Fully Kiosk / MDM
 2. Open the app once (required by Android to exit the "stopped state" so boot auto-start works)
 3. Tap **Allow** on the battery optimisation prompt
-4. Enter the printer IP and tap **Save**
+4. Enter the printer IP (the IP of the GAINSCHA printer on the local WiFi) → tap **Save**
 5. From this point the app auto-starts on reboot and requires no further interaction
+
+The printer IP is persisted in SharedPreferences and survives reboots and APK updates.
 
 ### Remote configuration via curl
 
-All settings can be pushed without touching the tablet UI:
+Advanced settings (label dimensions, print speed, density) can be pushed
+without touching the tablet UI — useful for bulk adjustments across tablets:
 
 ```bash
 curl -X POST http://<tablet-ip>:8080/config \
   -H "Content-Type: application/json" \
   -d '{
-    "printer_ip":      "192.168.1.100",
     "printer_port":    8899,
     "label_width_mm":  102,
     "label_height_mm": 152,
