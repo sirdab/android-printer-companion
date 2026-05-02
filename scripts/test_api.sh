@@ -410,6 +410,24 @@ main() {
     "OPTIONS" "/print" "" "check_cors_preflight"
 
   ##########################################################################
+  # RESET CONFIG TO SAFE DEFAULTS
+  ##########################################################################
+
+  echo ""
+  echo -e "${YELLOW}Resetting config to defaults...${NC}"
+  local reset_response=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/config" \
+    -H "Content-Type: application/json" \
+    -d '{"printer_port":8899,"label_width_mm":102,"label_height_mm":152,"gap_mm":3,"print_speed":4,"print_density":8}')
+  local reset_status=$(echo "$reset_response" | tail -n 1)
+  if [[ "$reset_status" == "200" ]]; then
+    echo -e "${GREEN}✓ Config reset to defaults (speed=4, density=8, gap=3, 102×152mm)${NC}"
+  else
+    echo -e "${RED}✗ Config reset failed (HTTP $reset_status) — run manually:${NC}"
+    echo '  curl -X POST http://'"${TABLET_IP}"':8080/config -H "Content-Type: application/json" \'
+    echo '    -d '"'"'{"printer_port":8899,"label_width_mm":102,"label_height_mm":152,"gap_mm":3,"print_speed":4,"print_density":8}'"'"
+  fi
+
+  ##########################################################################
   # SUMMARY
   ##########################################################################
 
