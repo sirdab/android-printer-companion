@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Printer connection over WiFi + PDF download -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Auto-start on device boot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Keep-alive foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Prevent CPU from sleeping while a print job is in flight -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Request exemption from battery optimisation / Doze mode so the
+         foreground service and watchdog keep running when the screen is off -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+
+        <!--
+            MainActivity extends GTSPLWIFIActivity (the GAINSCHA SDK base class).
+            singleTask: ensures only one instance exists at a time — important because
+            BootReceiver and the notification can both launch this activity.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            KeepAliveService: a foreground service whose only job is to keep the
+            process priority high so Android doesn't kill the Activity that hosts
+            the HTTP server and printer SDK.
+            foregroundServiceType="dataSync" is required on API 34+.
+        -->
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!--
+            BootReceiver: starts KeepAliveService on device boot.
+            QUICKBOOT_POWERON handles some Chinese tablet firmware variants.
+        -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+</manifest>

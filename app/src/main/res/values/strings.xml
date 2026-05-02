@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Printer Companion</string>
+    <string name="notification_channel_name">Printer Companion Service</string>
+    <string name="notification_channel_desc">Keeps the HTTP print server running in the background</string>
+    <string name="notification_title">Printer Companion</string>
+    <string name="notification_text">HTTP server running on :8080</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_ready">Ready — listening on :8080</string>
+    <string name="status_no_config">⚠ No printer IP configured</string>
+    <string name="status_printing">Printing…</string>
+    <string name="status_not_configured_hint">Not configured — POST /config to set printer_ip</string>
+</resources>

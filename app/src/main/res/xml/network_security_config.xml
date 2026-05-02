@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Allows cleartext (HTTP) traffic on the private kiosk network.
+    These tablets never touch the public internet — they talk only to:
+      - The local Rails app (HTTP on LAN)
+      - The GAINSCHA printer (TCP on LAN)
+      - localhost:8080 (our own HTTP server, fetch() from Fully Kiosk)
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

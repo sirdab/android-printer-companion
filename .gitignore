@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Android Studio
+.idea/
+*.iml
+local.properties
+
+# Signing — NEVER commit these
+keystore.properties
+*.jks
+*.jks.old
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db

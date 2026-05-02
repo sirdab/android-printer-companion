@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Companion app status screen.
+    This UI is secondary — the app mostly runs headless behind Fully Kiosk.
+    Tapping the persistent notification brings pickers here for diagnostics.
+-->
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/backgroundDark">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🖨  Printer Companion"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/textPrimary"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Status card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="STATUS"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Starting…"
+                android:textSize="16sp"
+                android:textColor="@color/textPrimary" />
+
+        </LinearLayout>
+
+        <!-- Printer config display -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PRINTER"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvPrinterConfig"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Not configured"
+                android:textSize="15sp"
+                android:fontFamily="monospace"
+                android:textColor="@color/textPrimary" />
+
+        </LinearLayout>
+
+        <!-- Printer IP settings -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SETTINGS"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Printer IP address"
+                android:textSize="13sp"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etPrinterIp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="e.g. 192.168.8.26"
+                android:inputType="text"
+                android:textSize="16sp"
+                android:fontFamily="monospace"
+                android:textColor="@color/textPrimary"
+                android:textColorHint="#666666"
+                android:background="#2A2A2A"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btnSaveConfig"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Save &amp; Apply"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#1DB954" />
+
+        </LinearLayout>
+
+        <!-- Last print card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:layout_marginBottom="32dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LAST PRINT"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvLastPrint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="None"
+                android:textSize="14sp"
+                android:textColor="@color/textSecondary" />
+
+        </LinearLayout>
+
+        <!-- Footer hint -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="HTTP server · localhost:8080\nPress back to minimise — do not close"
+            android:textSize="12sp"
+            android:textColor="@color/textSecondary"
+            android:gravity="center"
+            android:layout_gravity="center_horizontal" />
+
+    </LinearLayout>
+
+</ScrollView>

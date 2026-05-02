@@ -1,0 +1,6 @@
+Copy Android_GPL_AARv2.2.14.aar into this directory before building.
+
+Source: ~/Downloads/20230802_android_sdk_2.2.14/Android_GPL_AARv2.2.14.aar
+
+The app/build.gradle references it as:
+    implementation(name: 'Android_GPL_AARv2.2.14', ext: 'aar')

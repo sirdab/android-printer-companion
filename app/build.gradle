@@ -1,0 +1,76 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// Load signing credentials from keystore.properties (never committed to git).
+// Falls back gracefully so debug builds work without the file present.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace 'co.sirdab.printer'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "co.sirdab.printer"
+        minSdk 21          // PdfRenderer requires API 21+
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile     file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias      keystoreProperties['keyAlias']
+                keyPassword   keystoreProperties['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Minification is off: the closed-source GAINSCHA SDK uses
+            // reflection internally and has not been tested with R8.
+            // ProGuard rules are in proguard-rules.pro if this changes.
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+            debuggable false
+        }
+        debug {
+            debuggable true
+            applicationIdSuffix ".debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+}
+
+dependencies {
+    // GAINSCHA SDK — copy Android_GPL_AARv2.2.14.aar into app/libs/
+    implementation files('libs/Android_GPL_AARv2.2.14.aar')
+
+    // Embedded HTTP server — ~50 KB, no transitive deps
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+
+    // AndroidX
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.google.android.material:material:1.11.0'
+}
