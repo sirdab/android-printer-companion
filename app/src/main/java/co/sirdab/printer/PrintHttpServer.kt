@@ -39,8 +39,7 @@ class PrintHttpServer(
     override fun useGzipWhenAccepted(r: Response): Boolean = false
 
     private val configManager  get() = service.configManager
-    private val mainActivity   get() = MainActivity.instance?.get()
-    private val printerClient  get() = mainActivity?.printerClient
+    private val printerClient  get() = service.printerClient
 
     // ── Route dispatch ────────────────────────────────────────────────────────
 
@@ -84,8 +83,6 @@ class PrintHttpServer(
 
     private fun handlePrint(session: IHTTPSession): Response {
         val client = printerClient
-            ?: return errorResponse(503, "printer_service_unavailable",
-                "Printer service is initializing — please wait a moment and try again.")
 
         val body = parseJsonBody(session)
             ?: return errorResponse(400, "invalid_body",
@@ -106,12 +103,8 @@ class PrintHttpServer(
             copies      = copies
         )
 
-        mainActivity?.updateStatus("Printing…")
-
         return when (val result = client.print(job)) {
             is PrintResult.Success -> {
-                mainActivity?.updateStatus("Ready — last print OK (${result.pagesRendered}p)")
-                mainActivity?.recordLastPrint(success = true, detail = "${result.pagesRendered} page(s)")
                 jsonResponse(200, buildMap {
                     put("ok",    true)
                     put("pages", result.pagesRendered)
@@ -119,8 +112,6 @@ class PrintHttpServer(
             }
 
             is PrintResult.Failure -> {
-                mainActivity?.updateStatus("Error: ${result.message}")
-                mainActivity?.recordLastPrint(success = false, detail = result.message)
                 jsonResponse(result.httpStatus, buildMap {
                     put("ok",     false)
                     put("error",  result.code)
@@ -131,22 +122,10 @@ class PrintHttpServer(
     }
 
     private fun handleStatus(): Response {
-        val client = printerClient
-        if (client == null) {
-            return jsonResponse(200, buildMap {
-                put("ok",         true)
-                put("configured", configManager.isConfigured())
-                put("printer",    mapOf(
-                    "state"       to "initializing",
-                    "description" to "Printer service starting",
-                    "raw"         to ""
-                ))
-            })
-        }
         return jsonResponse(200, buildMap {
             put("ok",         true)
             put("configured", configManager.isConfigured())
-            put("printer",    client.getStatus())
+            put("printer",    printerClient.getStatus())
         })
     }
 
@@ -169,7 +148,6 @@ class PrintHttpServer(
         if (body.has("print_speed"))      configManager.printSpeed      = body.getInt("print_speed")
         if (body.has("print_density"))    configManager.printDensity    = body.getInt("print_density")
 
-        mainActivity?.refreshConfigDisplay()
         Log.i(TAG, "Config updated: ${configManager.toMap()}")
 
         return jsonResponse(200, buildMap {

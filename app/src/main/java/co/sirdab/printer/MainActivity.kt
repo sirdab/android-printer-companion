@@ -12,27 +12,28 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import com.gainscha.gtspl_sdk.GTSPLWIFIActivity
-import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * The companion app's single activity.
+ * The companion app's single activity — UI shell only.
  *
  * Architecture
  * ─────────────
- * The GAINSCHA SDK's entry point (GTSPLWIFIActivity) is an Activity subclass,
- * so SDK methods must be called on an Activity instance. MainActivity is therefore
- * the SDK host and owns [PrinterClient].
+ * [PrinterClient] now lives in [KeepAliveService], using [SdkHost] (a plain
+ * GTSPLWIFIActivity subclass instantiated without the Activity system). This
+ * means printing survives regardless of MainActivity's lifecycle — no more 503s
+ * when the activity is in the background.
  *
- * [PrintHttpServer] and [ConfigManager] live in [KeepAliveService] and survive
- * independently of the Activity lifecycle. When MainActivity is in the background
- * or not yet started, /config and /health still work. /print and /status are
- * temporarily unavailable until MainActivity is ready.
+ * MainActivity's only remaining job is to:
+ *  - Start KeepAliveService (idempotent)
+ *  - Show printer config UI and last-print status
+ *  - Request battery optimisation exemption on first launch
  *
  * Reliability mechanisms:
- *  1. KeepAliveService (foreground service) — keeps the process alive.
+ *  1. KeepAliveService (foreground service, START_STICKY) — keeps the process
+ *     alive and owns PrinterClient + HTTP server.
  *  2. onBackPressed() — redirects Back to moveTaskToBack() instead of finish().
  *  3. singleTask launch mode — prevents duplicate instances.
  */
@@ -40,15 +41,7 @@ class MainActivity : GTSPLWIFIActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-
-        /**
-         * Weak reference used by [PrintHttpServer] to reach [PrinterClient]
-         * without holding a strong reference that would prevent GC.
-         */
-        var instance: WeakReference<MainActivity>? = null
     }
-
-    lateinit var printerClient: PrinterClient
 
     private lateinit var tvStatus:         TextView
     private lateinit var tvPrinterConfig:  TextView
@@ -70,21 +63,12 @@ class MainActivity : GTSPLWIFIActivity() {
         etPrinterIp     = findViewById(R.id.etPrinterIp)
         btnSaveConfig   = findViewById(R.id.btnSaveConfig)
 
-        // Register this instance so PrintHttpServer can reach PrinterClient
-        instance = WeakReference(this)
-
-        // Ensure the foreground service is running — it owns the HTTP server
-        // and ConfigManager. Safe to call repeatedly (idempotent).
+        // Ensure the foreground service is running — it owns the HTTP server,
+        // ConfigManager, and PrinterClient. Safe to call repeatedly (idempotent).
         startKeepAliveService()
-
-        // Give the service a moment to start, then finish initialising
-        // (configManager will be available via KeepAliveService.instance)
         requestBatteryOptimizationExemption()
 
-        val configManager  = getConfigManager()
-        val pdfRenderer    = PdfPageRenderer(applicationContext)
-        printerClient      = PrinterClient(this, applicationContext, configManager, pdfRenderer)
-
+        val configManager = getConfigManager()
         etPrinterIp.setText(configManager.printerIp)
 
         btnSaveConfig.setOnClickListener {
@@ -111,18 +95,12 @@ class MainActivity : GTSPLWIFIActivity() {
         refreshConfigDisplay()
     }
 
-    override fun onDestroy() {
-        instance = null
-        if (::printerClient.isInitialized) printerClient.shutdown()
-        super.onDestroy()
-    }
-
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         moveTaskToBack(true)
     }
 
-    // ── UI updates (called from PrintHttpServer on NanoHTTPD threads) ─────────
+    // ── UI updates (may be called from other threads) ─────────────────────────
 
     fun updateStatus(message: String) {
         runOnUiThread { tvStatus.text = message }
@@ -148,11 +126,6 @@ class MainActivity : GTSPLWIFIActivity() {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /**
-     * Returns the [ConfigManager] from the running [KeepAliveService] if
-     * available, or creates a local one as a fallback (same SharedPreferences
-     * file, so all changes are shared within the process).
-     */
     private fun getConfigManager(): ConfigManager {
         return KeepAliveService.instance?.get()?.configManager
             ?: ConfigManager(applicationContext)

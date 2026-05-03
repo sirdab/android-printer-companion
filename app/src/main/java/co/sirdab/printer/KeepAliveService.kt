@@ -51,6 +51,7 @@ class KeepAliveService : Service() {
     }
 
     lateinit var configManager: ConfigManager
+    lateinit var printerClient: PrinterClient
     private lateinit var httpServer: PrintHttpServer
     private lateinit var watchdogExecutor: ScheduledExecutorService
 
@@ -61,6 +62,12 @@ class KeepAliveService : Service() {
         instance = WeakReference(this)
 
         configManager = ConfigManager(applicationContext)
+        printerClient = PrinterClient(
+            sdk         = SdkHost(applicationContext),
+            context     = applicationContext,
+            config      = configManager,
+            pdfRenderer = PdfPageRenderer(applicationContext)
+        )
 
         createNotificationChannel()
         val notification = buildNotification()
@@ -87,6 +94,7 @@ class KeepAliveService : Service() {
 
     override fun onDestroy() {
         instance = null
+        if (::printerClient.isInitialized) printerClient.shutdown()
         if (::httpServer.isInitialized) httpServer.stop()
         if (::watchdogExecutor.isInitialized) watchdogExecutor.shutdown()
         super.onDestroy()
