@@ -37,6 +37,10 @@ class PrintHttpServer(
         private const val MIME_JSON = "application/json"
     }
 
+    // Disable gzip — NanoHTTPD's gzip encoding causes "Broken pipe" / "Connection reset"
+    // errors when the client closes the connection before the compressed stream is flushed.
+    override fun useGzipWhenAccepted(r: Response): Boolean = false
+
     private val printerClient get() = activity.printerClient
     private val configManager get() = activity.configManager
 
