@@ -1,48 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Companion app status screen.
-    This UI is secondary — the app mostly runs headless behind Fully Kiosk.
-    Tapping the persistent notification brings pickers here for diagnostics.
+    Sirdab design system: light surfaces, brand teal accents, 12px card radii.
 -->
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/backgroundDark">
+    android:background="@color/sdBgMuted">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="24dp">
 
         <!-- Header -->
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🖨  Printer Companion"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="@color/textPrimary"
-            android:layout_marginBottom="32dp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <ImageView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/sirdab_logo"
+                android:contentDescription="Sirdab"
+                android:layout_marginRight="12dp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sirdab"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04"
+                    android:textColor="@color/sdBrand" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Printer Companion"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/sdFgStrong"
+                    android:letterSpacing="-0.01" />
+
+            </LinearLayout>
+
+        </LinearLayout>
 
         <!-- Status card -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#1E1E1E"
+            android:background="@drawable/sd_card"
             android:padding="16dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="12dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="STATUS"
                 android:textSize="11sp"
-                android:letterSpacing="0.15"
-                android:textColor="@color/textSecondary"
-                android:layout_marginBottom="8dp" />
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/sdFgSubtle"
+                android:layout_marginBottom="6dp" />
 
             <TextView
                 android:id="@+id/tvStatus"
@@ -50,7 +86,7 @@
                 android:layout_height="wrap_content"
                 android:text="Starting…"
                 android:textSize="16sp"
-                android:textColor="@color/textPrimary" />
+                android:textColor="@color/sdFgStrong" />
 
         </LinearLayout>
 
@@ -59,18 +95,19 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#1E1E1E"
+            android:background="@drawable/sd_card"
             android:padding="16dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="12dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="PRINTER"
                 android:textSize="11sp"
-                android:letterSpacing="0.15"
-                android:textColor="@color/textSecondary"
-                android:layout_marginBottom="8dp" />
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/sdFgSubtle"
+                android:layout_marginBottom="6dp" />
 
             <TextView
                 android:id="@+id/tvPrinterConfig"
@@ -79,26 +116,27 @@
                 android:text="Not configured"
                 android:textSize="15sp"
                 android:fontFamily="monospace"
-                android:textColor="@color/textPrimary" />
+                android:textColor="@color/sdFgStrong" />
 
         </LinearLayout>
 
-        <!-- Printer IP settings -->
+        <!-- Settings -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#1E1E1E"
+            android:background="@drawable/sd_card"
             android:padding="16dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="12dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SETTINGS"
                 android:textSize="11sp"
-                android:letterSpacing="0.15"
-                android:textColor="@color/textSecondary"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/sdFgSubtle"
                 android:layout_marginBottom="12dp" />
 
             <TextView
@@ -106,7 +144,7 @@
                 android:layout_height="wrap_content"
                 android:text="Printer IP address"
                 android:textSize="13sp"
-                android:textColor="@color/textSecondary"
+                android:textColor="@color/sdFgMuted"
                 android:layout_marginBottom="6dp" />
 
             <EditText
@@ -117,39 +155,42 @@
                 android:inputType="text"
                 android:textSize="16sp"
                 android:fontFamily="monospace"
-                android:textColor="@color/textPrimary"
-                android:textColorHint="#666666"
-                android:background="#2A2A2A"
+                android:textColor="@color/sdFgStrong"
+                android:textColorHint="@color/sdFgFaint"
+                android:background="@drawable/sd_input"
                 android:padding="12dp"
                 android:layout_marginBottom="12dp" />
 
             <Button
                 android:id="@+id/btnSaveConfig"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:text="Save &amp; Apply"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#1DB954" />
+                android:textColor="@color/sdFgOnBrand"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:backgroundTint="@color/sdBrand" />
 
         </LinearLayout>
 
-        <!-- Last print card -->
+        <!-- Last print -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#1E1E1E"
+            android:background="@drawable/sd_card"
             android:padding="16dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="12dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="LAST PRINT"
                 android:textSize="11sp"
-                android:letterSpacing="0.15"
-                android:textColor="@color/textSecondary"
-                android:layout_marginBottom="8dp" />
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/sdFgSubtle"
+                android:layout_marginBottom="6dp" />
 
             <TextView
                 android:id="@+id/tvLastPrint"
@@ -157,27 +198,28 @@
                 android:layout_height="wrap_content"
                 android:text="None"
                 android:textSize="14sp"
-                android:textColor="@color/textSecondary" />
+                android:textColor="@color/sdFgMuted" />
 
         </LinearLayout>
 
-        <!-- Updates card -->
+        <!-- Updates -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#1E1E1E"
+            android:background="@drawable/sd_card"
             android:padding="16dp"
-            android:layout_marginBottom="32dp">
+            android:layout_marginBottom="20dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="UPDATES"
                 android:textSize="11sp"
-                android:letterSpacing="0.15"
-                android:textColor="@color/textSecondary"
-                android:layout_marginBottom="8dp" />
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/sdFgSubtle"
+                android:layout_marginBottom="6dp" />
 
             <TextView
                 android:id="@+id/tvUpdateStatus"
@@ -185,27 +227,29 @@
                 android:layout_height="wrap_content"
                 android:text="Up to date"
                 android:textSize="14sp"
-                android:textColor="@color/textSecondary"
+                android:textColor="@color/sdFgMuted"
                 android:layout_marginBottom="12dp" />
 
             <Button
                 android:id="@+id/btnCheckUpdate"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
                 android:text="Check for updates"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#3A3A3A" />
+                android:textColor="@color/sdBrand"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:backgroundTint="@color/sdBrandSubtle" />
 
         </LinearLayout>
 
-        <!-- Footer hint -->
+        <!-- Footer -->
         <TextView
             android:id="@+id/tvFooter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="HTTP server · localhost:8080\nPress back to minimise — do not close"
             android:textSize="12sp"
-            android:textColor="@color/textSecondary"
+            android:textColor="@color/sdFgFaint"
             android:gravity="center"
             android:layout_gravity="center_horizontal" />
 

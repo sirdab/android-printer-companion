@@ -1,15 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Sirdab design tokens — see colors_and_type.css in the design system. -->
 <resources>
-    <color name="ic_launcher_background">#03989e</color>
-    <color name="colorPrimary">#1A237E</color>
-    <color name="colorPrimaryDark">#0D1642</color>
-    <color name="colorAccent">#42A5F5</color>
-    <color name="statusReady">#2E7D32</color>
-    <color name="statusWarning">#E65100</color>
-    <color name="statusError">#B71C1C</color>
-    <color name="statusPrinting">#1565C0</color>
-    <color name="backgroundDark">#121212</color>
-    <color name="surfaceDark">#1E1E1E</color>
-    <color name="textPrimary">#FFFFFF</color>
-    <color name="textSecondary">#B0B0B0</color>
+    <!-- Launcher / chrome -->
+    <color name="ic_launcher_background">#03989E</color>
+    <color name="colorPrimary">#03989E</color>
+    <color name="colorPrimaryDark">#02727A</color>
+    <color name="colorAccent">#03989E</color>
+
+    <!-- Sirdab brand (teal) -->
+    <color name="sdBrand">#03989E</color>
+    <color name="sdBrandHover">#02878D</color>
+    <color name="sdBrandSubtle">#E6F7F7</color>
+
+    <!-- Surfaces -->
+    <color name="sdBg">#FFFFFF</color>
+    <color name="sdBgMuted">#F7F9FB</color>
+    <color name="sdBgSunken">#EEF2F6</color>
+
+    <!-- Foreground -->
+    <color name="sdFgStrong">#0F1420</color>
+    <color name="sdFg">#10141B</color>
+    <color name="sdFgMuted">#343C48</color>
+    <color name="sdFgSubtle">#4B5564</color>
+    <color name="sdFgFaint">#6B7785</color>
+    <color name="sdFgOnBrand">#FFFFFF</color>
+
+    <!-- Borders -->
+    <color name="sdBorder">#E2E8EF</color>
+    <color name="sdBorderStrong">#CBD3DD</color>
+
+    <!-- Status semantic -->
+    <color name="statusReady">#047857</color>
+    <color name="statusWarning">#B45309</color>
+    <color name="statusError">#B91C1C</color>
+    <color name="statusPrinting">#0369A1</color>
+
+    <!-- Legacy aliases — kept so existing references keep compiling -->
+    <color name="backgroundDark">@color/sdBgMuted</color>
+    <color name="surfaceDark">@color/sdBg</color>
+    <color name="textPrimary">@color/sdFg</color>
+    <color name="textSecondary">@color/sdFgSubtle</color>
 </resources>
