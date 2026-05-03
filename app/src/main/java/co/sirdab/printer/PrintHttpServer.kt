@@ -16,6 +16,7 @@ import org.json.JSONObject
  *   GET  /config      — read current configuration
  *   POST /config      — update configuration
  *   GET  /health      — basic liveness check
+ *   POST /update      — manually trigger an update check
  *   OPTIONS *         — CORS preflight
  *
  * This server is owned by [KeepAliveService] and therefore survives
@@ -65,6 +66,9 @@ class PrintHttpServer(
 
                 session.method == Method.GET && session.uri == "/health" ->
                     handleHealth()
+
+                session.method == Method.POST && session.uri == "/update" ->
+                    handleUpdate()
 
                 else ->
                     errorResponse(404, "not_found",
@@ -161,6 +165,37 @@ class PrintHttpServer(
             "ok"      to true,
             "service" to "printer-companion",
             "version" to "1.0.0"
+        ))
+    }
+
+    /**
+     * Triggers an update check on a background thread and returns immediately.
+     * If a newer release is found, ApkInstaller downloads the APK and fires
+     * Android's install dialog — the operator just needs to tap "Install".
+     */
+    private fun handleUpdate(): Response {
+        val context = service.applicationContext
+        val current = context.packageManager
+            .getPackageInfo(context.packageName, 0).versionName ?: "0"
+
+        Thread {
+            val release = UpdateChecker.fetchLatest()
+            if (release == null) {
+                Log.w(TAG, "Update trigger: GitHub unreachable")
+                return@Thread
+            }
+            if (!UpdateChecker.isNewer(current, release.versionName)) {
+                Log.i(TAG, "Update trigger: already on latest ($current)")
+                return@Thread
+            }
+            Log.i(TAG, "Update trigger: $current → ${release.versionName}")
+            ApkInstaller.downloadAndInstall(context, release.apkUrl)
+        }.start()
+
+        return jsonResponse(200, mapOf(
+            "ok"      to true,
+            "current" to current,
+            "message" to "Update check started"
         ))
     }
 

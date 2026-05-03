@@ -140,7 +140,7 @@
             android:orientation="vertical"
             android:background="#1E1E1E"
             android:padding="16dp"
-            android:layout_marginBottom="32dp">
+            android:layout_marginBottom="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -158,6 +158,43 @@
                 android:text="None"
                 android:textSize="14sp"
                 android:textColor="@color/textSecondary" />
+
+        </LinearLayout>
+
+        <!-- Updates card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:layout_marginBottom="32dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="UPDATES"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvUpdateStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Up to date"
+                android:textSize="14sp"
+                android:textColor="@color/textSecondary"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btnCheckUpdate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Check for updates"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#3A3A3A" />
 
         </LinearLayout>
 

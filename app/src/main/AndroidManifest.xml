@@ -18,6 +18,11 @@
          foreground service and watchdog keep running when the screen is off -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Allow the app to install APK updates pulled from GitHub releases. The
+         system still shows an install confirmation dialog; this is required
+         before that dialog will even appear. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -54,6 +59,20 @@
             android:exported="false"
             android:stopWithTask="false"
             android:foregroundServiceType="dataSync" />
+
+        <!--
+            FileProvider used by ApkInstaller to expose the downloaded APK to
+            Android's package installer via a content:// URI.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!--
             BootReceiver: starts KeepAliveService on device boot.

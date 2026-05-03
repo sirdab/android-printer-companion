@@ -47,8 +47,10 @@ class MainActivity : GTSPLWIFIActivity() {
     private lateinit var tvPrinterConfig:  TextView
     private lateinit var tvLastPrint:      TextView
     private lateinit var tvFooter:         TextView
+    private lateinit var tvUpdateStatus:   TextView
     private lateinit var etPrinterIp:      EditText
     private lateinit var btnSaveConfig:    Button
+    private lateinit var btnCheckUpdate:   Button
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
@@ -62,11 +64,15 @@ class MainActivity : GTSPLWIFIActivity() {
         tvPrinterConfig = findViewById(R.id.tvPrinterConfig)
         tvLastPrint     = findViewById(R.id.tvLastPrint)
         tvFooter        = findViewById(R.id.tvFooter)
+        tvUpdateStatus  = findViewById(R.id.tvUpdateStatus)
         etPrinterIp     = findViewById(R.id.etPrinterIp)
         btnSaveConfig   = findViewById(R.id.btnSaveConfig)
+        btnCheckUpdate  = findViewById(R.id.btnCheckUpdate)
 
         val versionName = packageManager.getPackageInfo(packageName, 0).versionName
         tvFooter.text = "HTTP server · localhost:8080\nPress back to minimise — do not close\nv$versionName"
+
+        btnCheckUpdate.setOnClickListener { checkForUpdate(versionName ?: "0", manual = true) }
 
         // Ensure the foreground service is running — it owns the HTTP server,
         // ConfigManager, and PrinterClient. Safe to call repeatedly (idempotent).
@@ -93,6 +99,11 @@ class MainActivity : GTSPLWIFIActivity() {
             if (configManager.isConfigured()) getString(R.string.status_ready)
             else getString(R.string.status_no_config)
         )
+
+        // Opportunistic update check on every Activity launch — the action bar
+        // button in Fully Kiosk launches this Activity, so this is what makes
+        // the one-tap "check now" flow work.
+        checkForUpdate(versionName ?: "0", manual = false)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -151,6 +162,34 @@ class MainActivity : GTSPLWIFIActivity() {
         } catch (e: Exception) {
             Log.w(TAG, "Could not request battery optimisation exemption: ${e.message}")
         }
+    }
+
+    private fun checkForUpdate(currentVersion: String, manual: Boolean) {
+        if (manual) {
+            tvUpdateStatus.text = "Checking…"
+            btnCheckUpdate.isEnabled = false
+        }
+        Thread {
+            val release = UpdateChecker.fetchLatest()
+            runOnUiThread {
+                btnCheckUpdate.isEnabled = true
+                if (release == null) {
+                    if (manual) {
+                        tvUpdateStatus.text = "Could not reach GitHub"
+                        Toast.makeText(this, "Update check failed — check WiFi", Toast.LENGTH_SHORT).show()
+                    }
+                    return@runOnUiThread
+                }
+                if (UpdateChecker.isNewer(currentVersion, release.versionName)) {
+                    tvUpdateStatus.text = "Update available: v${release.versionName}"
+                    Toast.makeText(this, "Downloading v${release.versionName}…", Toast.LENGTH_SHORT).show()
+                    Thread { ApkInstaller.downloadAndInstall(applicationContext, release.apkUrl) }.start()
+                } else {
+                    tvUpdateStatus.text = "Up to date (v$currentVersion)"
+                    if (manual) Toast.makeText(this, "Already on latest version", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
     }
 
     private fun startKeepAliveService() {

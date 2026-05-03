@@ -46,6 +46,11 @@ class KeepAliveService : Service() {
         private const val WATCHDOG_INTERVAL_S = 30L
         private const val HEALTH_URL = "http://localhost:${PrintHttpServer.PORT}/health"
 
+        // Update checker — first check 60s after start (give WiFi time to settle),
+        // then every 6h. Anonymous GitHub API limit is 60/h, far above this rate.
+        private const val UPDATE_INITIAL_DELAY_S = 60L
+        private const val UPDATE_INTERVAL_S      = 6 * 60 * 60L
+
         /** Weak reference so other components can reach the running service instance. */
         var instance: WeakReference<KeepAliveService>? = null
     }
@@ -54,6 +59,7 @@ class KeepAliveService : Service() {
     lateinit var printerClient: PrinterClient
     private lateinit var httpServer: PrintHttpServer
     private lateinit var watchdogExecutor: ScheduledExecutorService
+    private lateinit var updateExecutor: ScheduledExecutorService
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -86,6 +92,7 @@ class KeepAliveService : Service() {
         Log.i(TAG, "HTTP server started on :${PrintHttpServer.PORT}")
 
         startWatchdog()
+        startUpdateChecker()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -97,6 +104,7 @@ class KeepAliveService : Service() {
         if (::printerClient.isInitialized) printerClient.shutdown()
         if (::httpServer.isInitialized) httpServer.stop()
         if (::watchdogExecutor.isInitialized) watchdogExecutor.shutdown()
+        if (::updateExecutor.isInitialized) updateExecutor.shutdown()
         super.onDestroy()
     }
 
@@ -149,6 +157,32 @@ class KeepAliveService : Service() {
             Log.w(TAG, "Watchdog: HTTP server unreachable — restarting (${e.message})")
         }
         ensureHttpServerRunning()
+    }
+
+    // ── Update checker ────────────────────────────────────────────────────────
+
+    private fun startUpdateChecker() {
+        updateExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "update-checker").apply { isDaemon = true }
+        }
+        updateExecutor.scheduleWithFixedDelay(
+            ::checkForUpdate,
+            UPDATE_INITIAL_DELAY_S,
+            UPDATE_INTERVAL_S,
+            TimeUnit.SECONDS
+        )
+        Log.d(TAG, "Update checker started — every ${UPDATE_INTERVAL_S}s")
+    }
+
+    private fun checkForUpdate() {
+        val release = UpdateChecker.fetchLatest() ?: return
+        val current = packageManager.getPackageInfo(packageName, 0).versionName ?: return
+        if (!UpdateChecker.isNewer(current, release.versionName)) {
+            Log.d(TAG, "Up to date (current=$current, latest=${release.versionName})")
+            return
+        }
+        Log.i(TAG, "Update available: $current → ${release.versionName} — downloading")
+        ApkInstaller.downloadAndInstall(applicationContext, release.apkUrl)
     }
 
     // ── Notification ──────────────────────────────────────────────────────────
