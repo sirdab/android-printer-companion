@@ -70,11 +70,13 @@ Place `sirdab-printer.jks` in the `app/` directory. Back up both files securely 
 Each tablet connects to a different printer, so the printer IP is configured
 directly on the device. This only needs to be done once per tablet.
 
-1. Install the APK remotely via Fully Kiosk / MDM
-2. Open the app once (required by Android to exit the "stopped state" so boot auto-start works)
-3. Tap **Allow** on the battery optimisation prompt
-4. Enter the printer IP (the IP of the GAINSCHA printer on the local WiFi) → tap **Save**
-5. From this point the app auto-starts on reboot and requires no further interaction
+1. Enable USB debugging: **Settings → About tablet** → tap **Build number** 7 times → **Settings → Developer options** → enable **USB debugging**
+2. Connect via USB, then run: `adb install app-release.apk`
+3. Open the app once (required by Android to exit the "stopped state" so boot auto-start works)
+4. Tap **Allow** on the battery optimisation prompt
+5. Enter the printer IP (the IP of the GAINSCHA printer on the local WiFi) → tap **Save**
+6. Turn off USB debugging: **Settings → Developer options** → disable **USB debugging** (or toggle Developer options off entirely)
+7. From this point the app auto-starts on reboot and requires no further interaction
 
 The printer IP is persisted in SharedPreferences and survives reboots and APK updates.
 
