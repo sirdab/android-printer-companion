@@ -46,6 +46,7 @@ class MainActivity : GTSPLWIFIActivity() {
     private lateinit var tvStatus:         TextView
     private lateinit var tvPrinterConfig:  TextView
     private lateinit var tvLastPrint:      TextView
+    private lateinit var tvFooter:         TextView
     private lateinit var etPrinterIp:      EditText
     private lateinit var btnSaveConfig:    Button
 
@@ -60,8 +61,12 @@ class MainActivity : GTSPLWIFIActivity() {
         tvStatus        = findViewById(R.id.tvStatus)
         tvPrinterConfig = findViewById(R.id.tvPrinterConfig)
         tvLastPrint     = findViewById(R.id.tvLastPrint)
+        tvFooter        = findViewById(R.id.tvFooter)
         etPrinterIp     = findViewById(R.id.etPrinterIp)
         btnSaveConfig   = findViewById(R.id.btnSaveConfig)
+
+        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        tvFooter.text = "HTTP server · localhost:8080\nPress back to minimise — do not close\nv$versionName"
 
         // Ensure the foreground service is running — it owns the HTTP server,
         // ConfigManager, and PrinterClient. Safe to call repeatedly (idempotent).

@@ -163,6 +163,7 @@
 
         <!-- Footer hint -->
         <TextView
+            android:id="@+id/tvFooter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="HTTP server · localhost:8080\nPress back to minimise — do not close"
