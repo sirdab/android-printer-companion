@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Persist printer IP and label config across uninstall/reinstall via the
+         tablet's Google account. Used on Android 11 and below. -->
+    <include domain="sharedpref" path="." />
+</full-backup-content>
