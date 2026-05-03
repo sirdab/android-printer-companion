@@ -193,10 +193,13 @@ class PrintHttpServer(
     }
 
     private fun addCorsHeaders(response: Response) {
-        response.addHeader("Access-Control-Allow-Origin",  "*")
-        response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Accept")
-        response.addHeader("Access-Control-Max-Age",       "86400")
+        response.addHeader("Access-Control-Allow-Origin",          "*")
+        response.addHeader("Access-Control-Allow-Methods",         "GET, POST, OPTIONS")
+        response.addHeader("Access-Control-Allow-Headers",         "Content-Type, Accept")
+        response.addHeader("Access-Control-Max-Age",               "86400")
+        // Required for Private Network Access (PNA) — Android WebView blocks
+        // requests from web pages to localhost unless the server opts in.
+        response.addHeader("Access-Control-Allow-Private-Network", "true")
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
