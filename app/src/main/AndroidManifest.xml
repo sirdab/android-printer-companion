@@ -75,6 +75,18 @@
         </provider>
 
         <!--
+            InstallResultReceiver: receives async PackageInstaller callbacks.
+            On STATUS_PENDING_USER_ACTION it launches the system install dialog.
+        -->
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="co.sirdab.printer.INSTALL_RESULT" />
+            </intent-filter>
+        </receiver>
+
+        <!--
             BootReceiver: starts KeepAliveService on device boot.
             QUICKBOOT_POWERON handles some Chinese tablet firmware variants.
         -->
