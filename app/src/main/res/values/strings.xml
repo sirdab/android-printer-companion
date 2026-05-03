@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Printer Companion</string>
-    <string name="notification_channel_name">Printer Companion Service</string>
+    <string name="app_name">Sirdab Printer Companion</string>
+    <string name="notification_channel_name">Sirdab Printer Companion Service</string>
     <string name="notification_channel_desc">Keeps the HTTP print server running in the background</string>
-    <string name="notification_title">Printer Companion</string>
+    <string name="notification_title">Sirdab Printer Companion</string>
     <string name="notification_text">HTTP server running on :8080</string>
     <string name="status_starting">Starting…</string>
     <string name="status_ready">Ready — listening on :8080</string>
