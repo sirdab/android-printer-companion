@@ -15,20 +15,16 @@ import org.json.JSONObject
  *   GET  /status      — check printer status
  *   GET  /config      — read current configuration
  *   POST /config      — update configuration
- *   GET  /health      — basic liveness check (for Fully Kiosk watchdog scripts)
- *   OPTIONS *         — CORS preflight (required for fetch() from Fully Kiosk Browser)
+ *   GET  /health      — basic liveness check
+ *   OPTIONS *         — CORS preflight
  *
- * All responses are JSON.  Every response includes CORS headers so that
- * fetch('http://localhost:8080/...') from Fully Kiosk Browser works without
- * triggering a "blocked by CORS policy" error.
- *
- * NanoHTTPD spawns one thread per connection.  The /print handler blocks that
- * thread for the duration of the job (download + render + SDK).  This is fine
- * because the SDK is synchronous by design and the single-thread executor in
- * PrinterClient ensures only one job runs at a time regardless.
+ * This server is owned by [KeepAliveService] and therefore survives
+ * independently of the Activity lifecycle.  [PrinterClient] is accessed via
+ * [MainActivity.instance] when a print or status request arrives — if the
+ * Activity is not yet ready, print/status requests return a 503.
  */
 class PrintHttpServer(
-    private val activity: MainActivity
+    private val service: KeepAliveService
 ) : NanoHTTPD(PORT) {
 
     companion object {
@@ -37,12 +33,14 @@ class PrintHttpServer(
         private const val MIME_JSON = "application/json"
     }
 
-    // Disable gzip — NanoHTTPD's gzip encoding causes "Broken pipe" / "Connection reset"
-    // errors when the client closes the connection before the compressed stream is flushed.
+    // Disable gzip — NanoHTTPD's gzip encoding causes "Broken pipe" /
+    // "Connection reset" errors when the client closes the connection before
+    // the compressed stream is flushed.
     override fun useGzipWhenAccepted(r: Response): Boolean = false
 
-    private val printerClient get() = activity.printerClient
-    private val configManager get() = activity.configManager
+    private val configManager  get() = service.configManager
+    private val mainActivity   get() = MainActivity.instance?.get()
+    private val printerClient  get() = mainActivity?.printerClient
 
     // ── Route dispatch ────────────────────────────────────────────────────────
 
@@ -84,26 +82,11 @@ class PrintHttpServer(
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
-    /**
-     * POST /print
-     *
-     * Request body (JSON):
-     *   pdfUrl      String  required   Full URL to the PDF
-     *   printerIp   String  optional   Overrides stored config for this job
-     *   printerPort Int     optional   Overrides stored config for this job
-     *   copies      Int     optional   Number of copies per page (default 1, max 10)
-     *
-     * Success response 200:
-     *   { "ok": true, "pages": 1 }
-     *
-     * Failure responses:
-     *   400  missing/invalid request fields
-     *   422  PDF could not be downloaded or rendered
-     *   503  printer unreachable or hardware error
-     *   504  job timed out
-     *   500  unexpected SDK / server error
-     */
     private fun handlePrint(session: IHTTPSession): Response {
+        val client = printerClient
+            ?: return errorResponse(503, "printer_service_unavailable",
+                "Printer service is initializing — please wait a moment and try again.")
+
         val body = parseJsonBody(session)
             ?: return errorResponse(400, "invalid_body",
                 "Request body must be valid JSON with Content-Type: application/json")
@@ -112,7 +95,6 @@ class PrintHttpServer(
             ?: return errorResponse(400, "missing_pdfUrl",
                 "Required field 'pdfUrl' is missing or empty")
 
-        // Optional per-request overrides
         val printerIp   = body.optString("printerIp").takeIf { it.isNotBlank() }
         val printerPort = if (body.has("printerPort")) body.optInt("printerPort") else null
         val copies      = body.optInt("copies", 1).coerceIn(1, 10)
@@ -124,13 +106,12 @@ class PrintHttpServer(
             copies      = copies
         )
 
-        // Inform the status UI
-        activity.updateStatus("Printing…")
+        mainActivity?.updateStatus("Printing…")
 
-        return when (val result = printerClient.print(job)) {
+        return when (val result = client.print(job)) {
             is PrintResult.Success -> {
-                activity.updateStatus("Ready — last print OK (${result.pagesRendered}p)")
-                activity.recordLastPrint(success = true, detail = "${result.pagesRendered} page(s)")
+                mainActivity?.updateStatus("Ready — last print OK (${result.pagesRendered}p)")
+                mainActivity?.recordLastPrint(success = true, detail = "${result.pagesRendered} page(s)")
                 jsonResponse(200, buildMap {
                     put("ok",    true)
                     put("pages", result.pagesRendered)
@@ -138,8 +119,8 @@ class PrintHttpServer(
             }
 
             is PrintResult.Failure -> {
-                activity.updateStatus("Error: ${result.message}")
-                activity.recordLastPrint(success = false, detail = result.message)
+                mainActivity?.updateStatus("Error: ${result.message}")
+                mainActivity?.recordLastPrint(success = false, detail = result.message)
                 jsonResponse(result.httpStatus, buildMap {
                     put("ok",     false)
                     put("error",  result.code)
@@ -149,39 +130,26 @@ class PrintHttpServer(
         }
     }
 
-    /**
-     * GET /status
-     *
-     * Returns the current printer state without sending a print job.
-     * The webapp can call this on page load to show a status badge to pickers.
-     *
-     * Response 200:
-     *   {
-     *     "ok": true,
-     *     "configured": true,
-     *     "printer": {
-     *       "state": "ready",          // ready | printing | paused | out_of_paper |
-     *                                  // out_of_ribbon | paper_jam | head_open |
-     *                                  // unreachable | not_configured | error | unknown
-     *       "description": "Ready",
-     *       "raw": "00"
-     *     }
-     *   }
-     */
     private fun handleStatus(): Response {
-        val printerStatus = printerClient.getStatus()
+        val client = printerClient
+        if (client == null) {
+            return jsonResponse(200, buildMap {
+                put("ok",         true)
+                put("configured", configManager.isConfigured())
+                put("printer",    mapOf(
+                    "state"       to "initializing",
+                    "description" to "Printer service starting",
+                    "raw"         to ""
+                ))
+            })
+        }
         return jsonResponse(200, buildMap {
             put("ok",         true)
             put("configured", configManager.isConfigured())
-            put("printer",    printerStatus)
+            put("printer",    client.getStatus())
         })
     }
 
-    /**
-     * GET /config
-     *
-     * Returns the current stored configuration.
-     */
     private fun handleGetConfig(): Response {
         return jsonResponse(200, buildMap {
             put("ok", true)
@@ -189,21 +157,6 @@ class PrintHttpServer(
         })
     }
 
-    /**
-     * POST /config
-     *
-     * Accepts a partial JSON object — only the supplied keys are updated.
-     * Useful for scripted setup (e.g. a one-time curl command per tablet).
-     *
-     * Writable fields:
-     *   printer_ip       String
-     *   printer_port     Int
-     *   label_width_mm   Int
-     *   label_height_mm  Int
-     *   gap_mm           Int    (1–10)
-     *   print_speed      Int    (1–15)
-     *   print_density    Int    (0–15)
-     */
     private fun handleSetConfig(session: IHTTPSession): Response {
         val body = parseJsonBody(session)
             ?: return errorResponse(400, "invalid_body", "Expected JSON body")
@@ -216,7 +169,7 @@ class PrintHttpServer(
         if (body.has("print_speed"))      configManager.printSpeed      = body.getInt("print_speed")
         if (body.has("print_density"))    configManager.printDensity    = body.getInt("print_density")
 
-        activity.refreshConfigDisplay()
+        mainActivity?.refreshConfigDisplay()
         Log.i(TAG, "Config updated: ${configManager.toMap()}")
 
         return jsonResponse(200, buildMap {
@@ -225,12 +178,6 @@ class PrintHttpServer(
         })
     }
 
-    /**
-     * GET /health
-     *
-     * Minimal liveness probe.  Returns immediately without touching the printer.
-     * Use this in Fully Kiosk watchdog rules or a monitoring script.
-     */
     private fun handleHealth(): Response {
         return jsonResponse(200, mapOf(
             "ok"      to true,
@@ -241,11 +188,6 @@ class PrintHttpServer(
 
     // ── CORS ──────────────────────────────────────────────────────────────────
 
-    /**
-     * Handles the OPTIONS preflight that browsers send before a cross-origin
-     * POST.  fetch('http://localhost:8080/print') from Fully Kiosk Browser
-     * originates from a different origin (the Rails app URL), so CORS applies.
-     */
     private fun corsPreflightResponse(): Response {
         return newFixedLengthResponse(Response.Status.OK, MIME_JSON, "{\"ok\":true}")
     }
@@ -259,11 +201,6 @@ class PrintHttpServer(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Reads and parses the POST body as JSON.
-     * NanoHTTPD requires calling parseBody() to buffer the request body —
-     * the raw InputStream is not seekable.
-     */
     private fun parseJsonBody(session: IHTTPSession): JSONObject? {
         return try {
             val files = HashMap<String, String>()
@@ -289,13 +226,6 @@ class PrintHttpServer(
         ))
     }
 
-    /**
-     * Maps an integer HTTP status code to a NanoHTTPD IStatus.
-     *
-     * NanoHTTPD 2.3.1's Response.Status enum does not include every RFC status
-     * code (notably 422 and 504), so we create anonymous IStatus objects for
-     * those rather than relying on enum valueOf() which would throw at runtime.
-     */
     private fun httpStatus(code: Int): Response.IStatus = when (code) {
         200  -> Response.Status.OK
         400  -> Response.Status.BAD_REQUEST

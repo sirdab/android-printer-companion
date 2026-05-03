@@ -20,24 +20,21 @@ import java.util.Locale
 /**
  * The companion app's single activity.
  *
- * Architecture rationale
- * ─────────────────────
+ * Architecture
+ * ─────────────
  * The GAINSCHA SDK's entry point (GTSPLWIFIActivity) is an Activity subclass,
- * so SDK methods must be called on an Activity instance.  Rather than fighting
- * the SDK, we embrace this: MainActivity *is* the SDK object.
+ * so SDK methods must be called on an Activity instance. MainActivity is therefore
+ * the SDK host and owns [PrinterClient].
  *
- * Reliability is achieved through layered keep-alive mechanisms:
- *  1. KeepAliveService (foreground service) — Android will not kill a process
- *     that has a running foreground service, so the process stays resident even
- *     when Fully Kiosk is in the foreground.
- *  2. onBackPressed() — redirects Back to moveTaskToBack() instead of finish(),
- *     so the Activity is never destroyed by user navigation.
- *  3. singleTask launch mode (AndroidManifest) — prevents duplicate instances.
+ * [PrintHttpServer] and [ConfigManager] live in [KeepAliveService] and survive
+ * independently of the Activity lifecycle. When MainActivity is in the background
+ * or not yet started, /config and /health still work. /print and /status are
+ * temporarily unavailable until MainActivity is ready.
  *
- * The NanoHTTPD HTTP server and the single-thread print executor both live
- * inside this process.  Incoming print requests from Fully Kiosk Browser block
- * NanoHTTPD's per-request thread until the SDK returns; the executor ensures
- * only one print job runs at a time.
+ * Reliability mechanisms:
+ *  1. KeepAliveService (foreground service) — keeps the process alive.
+ *  2. onBackPressed() — redirects Back to moveTaskToBack() instead of finish().
+ *  3. singleTask launch mode — prevents duplicate instances.
  */
 class MainActivity : GTSPLWIFIActivity() {
 
@@ -45,21 +42,14 @@ class MainActivity : GTSPLWIFIActivity() {
         private const val TAG = "MainActivity"
 
         /**
-         * Weak reference to the currently running instance.
-         * Used by [KeepAliveService] to signal that the HTTP server should be
-         * restarted without holding a strong reference that would prevent GC.
+         * Weak reference used by [PrintHttpServer] to reach [PrinterClient]
+         * without holding a strong reference that would prevent GC.
          */
         var instance: WeakReference<MainActivity>? = null
     }
 
-    // ── Public references (accessed by PrintHttpServer and PrinterClient) ─────
-
-    lateinit var configManager:  ConfigManager
     lateinit var printerClient: PrinterClient
 
-    // ── Private ───────────────────────────────────────────────────────────────
-
-    private lateinit var httpServer:       PrintHttpServer
     private lateinit var tvStatus:         TextView
     private lateinit var tvPrinterConfig:  TextView
     private lateinit var tvLastPrint:      TextView
@@ -80,28 +70,21 @@ class MainActivity : GTSPLWIFIActivity() {
         etPrinterIp     = findViewById(R.id.etPrinterIp)
         btnSaveConfig   = findViewById(R.id.btnSaveConfig)
 
-        // Register this instance so KeepAliveService watchdog can reach us
+        // Register this instance so PrintHttpServer can reach PrinterClient
         instance = WeakReference(this)
 
-        // Initialise core components
-        configManager  = ConfigManager(applicationContext)
-        val pdfRenderer = PdfPageRenderer(applicationContext)
-        // 'this' extends GTSPLWIFIActivity — SDK methods are called on this object
-        printerClient  = PrinterClient(this, applicationContext, configManager, pdfRenderer)
-
-        // Ensure foreground service is running (idempotent — safe to call repeatedly)
+        // Ensure the foreground service is running — it owns the HTTP server
+        // and ConfigManager. Safe to call repeatedly (idempotent).
         startKeepAliveService()
 
-        // Ask Android to exempt this app from battery optimisation / Doze.
-        // Without this, aggressive OEM power managers can suspend the watchdog
-        // and foreground service after the screen has been off for a while.
+        // Give the service a moment to start, then finish initialising
+        // (configManager will be available via KeepAliveService.instance)
         requestBatteryOptimizationExemption()
 
-        // Start the HTTP server
-        httpServer = PrintHttpServer(this)
-        httpServer.start()
+        val configManager  = getConfigManager()
+        val pdfRenderer    = PdfPageRenderer(applicationContext)
+        printerClient      = PrinterClient(this, applicationContext, configManager, pdfRenderer)
 
-        // Pre-fill IP field with saved value
         etPrinterIp.setText(configManager.printerIp)
 
         btnSaveConfig.setOnClickListener {
@@ -116,7 +99,6 @@ class MainActivity : GTSPLWIFIActivity() {
             Toast.makeText(this, "Saved — printer IP: $ip", Toast.LENGTH_SHORT).show()
         }
 
-        // Initial UI state
         refreshConfigDisplay()
         updateStatus(
             if (configManager.isConfigured()) getString(R.string.status_ready)
@@ -126,23 +108,15 @@ class MainActivity : GTSPLWIFIActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        // Called when the notification tap re-launches an already-running instance.
-        // Refresh UI in case config was updated externally.
         refreshConfigDisplay()
     }
 
     override fun onDestroy() {
         instance = null
-        if (::httpServer.isInitialized) httpServer.stop()
         if (::printerClient.isInitialized) printerClient.shutdown()
         super.onDestroy()
     }
 
-    /**
-     * Intercept Back to minimise instead of destroying.
-     * This is critical: destroying the activity would stop the HTTP server
-     * and make the SDK unavailable for future print requests.
-     */
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         moveTaskToBack(true)
@@ -150,15 +124,12 @@ class MainActivity : GTSPLWIFIActivity() {
 
     // ── UI updates (called from PrintHttpServer on NanoHTTPD threads) ─────────
 
-    /** Updates the main status line.  Safe to call from any thread. */
     fun updateStatus(message: String) {
-        runOnUiThread {
-            tvStatus.text = message
-        }
+        runOnUiThread { tvStatus.text = message }
     }
 
-    /** Refreshes the printer config display.  Safe to call from any thread. */
     fun refreshConfigDisplay() {
+        val configManager = getConfigManager()
         runOnUiThread {
             tvPrinterConfig.text = if (configManager.isConfigured()) {
                 "${configManager.printerIp}:${configManager.printerPort}"
@@ -168,57 +139,25 @@ class MainActivity : GTSPLWIFIActivity() {
         }
     }
 
-    /** Records the result of the most recent print job in the UI. */
     fun recordLastPrint(success: Boolean, detail: String) {
         val time   = timeFormat.format(Date())
         val symbol = if (success) "✓" else "✗"
         val text   = "$symbol  $time  $detail"
-        runOnUiThread {
-            tvLastPrint.text = text
-        }
-    }
-
-    // ── Watchdog callback (called by KeepAliveService on the watchdog thread) ──
-
-    /**
-     * Called by [KeepAliveService] when the HTTP health check fails.
-     * Restarts [PrintHttpServer] if it is no longer alive.
-     * Safe to call from any thread.
-     */
-    fun ensureHttpServerRunning() {
-        runOnUiThread {
-            if (!::httpServer.isInitialized || !httpServer.isAlive) {
-                Log.w(TAG, "HTTP server not running — restarting")
-                try {
-                    if (::httpServer.isInitialized) httpServer.stop()
-                    httpServer = PrintHttpServer(this)
-                    httpServer.start()
-                    updateStatus("HTTP server restarted")
-                    Log.i(TAG, "HTTP server restarted successfully")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to restart HTTP server", e)
-                    updateStatus("HTTP server restart failed: ${e.message}")
-                }
-            } else {
-                Log.d(TAG, "ensureHttpServerRunning: server already alive")
-            }
-        }
+        runOnUiThread { tvLastPrint.text = text }
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
-     * Requests that Android stop applying battery optimisations to this app.
-     *
-     * On API 23+ this opens the system dialog asking the user to allow
-     * unrestricted background activity for this package.  The dialog is shown
-     * at most once: if the user has already granted the exemption (or denied
-     * it) we don't prompt again.
-     *
-     * This is safe to declare in the manifest (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-     * is whitelisted for direct-to-settings use) and is the standard approach
-     * for kiosk / always-on apps.
+     * Returns the [ConfigManager] from the running [KeepAliveService] if
+     * available, or creates a local one as a fallback (same SharedPreferences
+     * file, so all changes are shared within the process).
      */
+    private fun getConfigManager(): ConfigManager {
+        return KeepAliveService.instance?.get()?.configManager
+            ?: ConfigManager(applicationContext)
+    }
+
     private fun requestBatteryOptimizationExemption() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val pm = getSystemService(PowerManager::class.java)
@@ -232,8 +171,6 @@ class MainActivity : GTSPLWIFIActivity() {
             }
             startActivity(intent)
         } catch (e: Exception) {
-            // Some OEM firmwares don't support this intent.  Log and move on —
-            // the foreground service still provides meaningful protection.
             Log.w(TAG, "Could not request battery optimisation exemption: ${e.message}")
         }
     }

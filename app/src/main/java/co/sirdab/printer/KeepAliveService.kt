@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import java.lang.ref.WeakReference
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -18,17 +19,21 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 /**
- * A foreground service that keeps the app process alive and monitors the
- * embedded HTTP server.
+ * Foreground service that owns the HTTP server and keeps the process alive.
  *
  * Responsibilities:
  *  1. Hold a foreground service notification so Android treats the process as
  *     high-priority and does not kill it under normal memory pressure.
- *  2. Watchdog: periodically ping localhost:8080/health and ask MainActivity
- *     to restart the HTTP server if it stops responding.
+ *  2. Own and manage [PrintHttpServer] — the server lives here, not in
+ *     MainActivity, so it survives independently of the Activity lifecycle.
+ *  3. Own [ConfigManager] — shared with MainActivity via [instance].
+ *  4. Watchdog: periodically ping /health and restart the HTTP server if it stops.
  *
- * START_STICKY ensures Android restarts this service automatically if it is
- * ever killed under extreme memory pressure.
+ * [MainActivity] retains ownership of [PrinterClient] because the GAINSCHA SDK
+ * requires a GTSPLWIFIActivity subclass.  [PrintHttpServer] reaches PrinterClient
+ * via MainActivity.instance when processing print requests.
+ *
+ * START_STICKY ensures Android restarts this service automatically if killed.
  */
 class KeepAliveService : Service() {
 
@@ -37,22 +42,26 @@ class KeepAliveService : Service() {
         const val NOTIFICATION_ID = 1001
 
         private const val TAG = "KeepAliveService"
-
-        /** Seconds before the first watchdog check (give MainActivity time to start). */
         private const val WATCHDOG_INITIAL_DELAY_S = 30L
-
-        /** Seconds between watchdog health checks. */
         private const val WATCHDOG_INTERVAL_S = 30L
-
         private const val HEALTH_URL = "http://localhost:${PrintHttpServer.PORT}/health"
+
+        /** Weak reference so other components can reach the running service instance. */
+        var instance: WeakReference<KeepAliveService>? = null
     }
 
+    lateinit var configManager: ConfigManager
+    private lateinit var httpServer: PrintHttpServer
     private lateinit var watchdogExecutor: ScheduledExecutorService
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        instance = WeakReference(this)
+
+        configManager = ConfigManager(applicationContext)
+
         createNotificationChannel()
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -64,6 +73,11 @@ class KeepAliveService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+
+        httpServer = PrintHttpServer(this)
+        httpServer.start()
+        Log.i(TAG, "HTTP server started on :${PrintHttpServer.PORT}")
+
         startWatchdog()
     }
 
@@ -72,36 +86,28 @@ class KeepAliveService : Service() {
     }
 
     override fun onDestroy() {
-        watchdogExecutor.shutdown()
+        instance = null
+        if (::httpServer.isInitialized) httpServer.stop()
+        if (::watchdogExecutor.isInitialized) watchdogExecutor.shutdown()
         super.onDestroy()
-        // Android will restart this service automatically (START_STICKY)
     }
 
     /**
-     * Called when the user removes the app's task from the recents screen.
-     * This is one of the few contexts where a background service is still
-     * permitted to start an activity on Android 10+ — the callback is
-     * triggered by an explicit user gesture, so the OS allows it.
-     *
-     * Note: with android:excludeFromRecents="true" on MainActivity, the task
-     * won't appear in recents at all, so this method should rarely fire.
-     * It acts as a belt-and-suspenders safety net.
+     * Restarts the HTTP server if it is no longer alive.
+     * Called by the watchdog when a health check fails.
      */
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        Log.w(TAG, "Task removed from recents — scheduling MainActivity restart")
-        // Small delay so the system finishes tearing down the old task
-        android.os.Handler(mainLooper).postDelayed({
+    fun ensureHttpServerRunning() {
+        if (!::httpServer.isInitialized || !httpServer.isAlive) {
+            Log.w(TAG, "HTTP server not running — restarting")
             try {
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                }
-                startActivity(intent)
-                Log.i(TAG, "MainActivity restarted after task removal")
+                if (::httpServer.isInitialized) httpServer.stop()
+                httpServer = PrintHttpServer(this)
+                httpServer.start()
+                Log.i(TAG, "HTTP server restarted successfully")
             } catch (e: Exception) {
-                Log.e(TAG, "Could not restart MainActivity after task removal: ${e.message}")
+                Log.e(TAG, "Failed to restart HTTP server", e)
             }
-        }, 1_000L)
+        }
     }
 
     // ── Watchdog ──────────────────────────────────────────────────────────────
@@ -126,33 +132,15 @@ class KeepAliveService : Service() {
             conn.readTimeout    = 2_000
             val code = conn.responseCode
             conn.disconnect()
-
             if (code == 200) {
                 Log.d(TAG, "Watchdog: HTTP server OK")
                 return
             }
-            Log.w(TAG, "Watchdog: HTTP server returned $code — requesting restart")
+            Log.w(TAG, "Watchdog: HTTP server returned $code — restarting")
         } catch (e: Exception) {
-            Log.w(TAG, "Watchdog: HTTP server unreachable — requesting restart (${e.message})")
+            Log.w(TAG, "Watchdog: HTTP server unreachable — restarting (${e.message})")
         }
-
-        // Signal MainActivity to restart the HTTP server.
-        // WeakReference means this is a no-op if the activity has been GC'd.
-        val activity = MainActivity.instance?.get()
-        if (activity != null) {
-            activity.ensureHttpServerRunning()
-        } else {
-            // Activity is gone — try to restart it so it re-creates the HTTP server
-            Log.w(TAG, "Watchdog: MainActivity not available — attempting restart")
-            try {
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                }
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e(TAG, "Watchdog: could not restart MainActivity: ${e.message}")
-            }
-        }
+        ensureHttpServerRunning()
     }
 
     // ── Notification ──────────────────────────────────────────────────────────
